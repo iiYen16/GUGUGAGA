@@ -1,0 +1,12 @@
+# La contraseña del menú: solo en tu PC y en Studio, nunca en GitHub
+src/server/Secret.luau
+
+# El .rbxm original lleva la contraseña dentro del script del servidor
+backup/
+*.rbxm
+*.rbxmx
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+
+sourcemap.json

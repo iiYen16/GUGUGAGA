@@ -126,6 +126,16 @@ for _, item in FILES do
 	end
 end
 
+-- un Script o LocalScript desactivado no arranca al jugar: se activa y se avisa
+local enabled = {}
+for _, item in FILES do
+	local inst = find(item)
+	if inst and inst:IsA("BaseScript") and inst.Disabled then
+		inst.Disabled = false
+		table.insert(enabled, item.name)
+	end
+end
+
 -- 5) la contraseña: nunca viene de GitHub
 local server = game:GetService("ServerScriptService"):FindFirstChild("GuguGagaServer")
 local needsPassword = false
@@ -147,6 +157,9 @@ if #created > 0 then
 end
 if #updated > 0 then
 	say("Actualizados: " .. table.concat(updated, ", "))
+end
+if #enabled > 0 then
+	warn("[GuguGaga] Estaban desactivados y los activé (si no, el sistema no arranca): " .. table.concat(enabled, ", "))
 end
 if backup then
 	say("Versión anterior guardada en " .. backup:GetFullName())

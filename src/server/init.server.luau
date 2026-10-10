@@ -18,10 +18,14 @@ do
 	local ok, value = pcall(function()
 		return require(secret)
 	end)
-	if ok and type(value) == "table" and type(value.Password) == "string" and value.Password ~= "" then
-		PASSWORD = value.Password
+	if not secret then
+		warn("[GuguGaga] Falta el ModuleScript ServerScriptService.GuguGagaServer.Secret. Nadie podrá activar el menú.")
+	elseif not ok or type(value) ~= "table" or type(value.Password) ~= "string" then
+		warn("[GuguGaga] GuguGagaServer.Secret debe devolver { Password = \"...\" }. Nadie podrá activar el menú.")
+	elseif value.Password == "" then
+		warn("[GuguGaga] La contraseña está vacía: escríbela en GuguGagaServer.Secret. Nadie podrá activar el menú.")
 	else
-		warn("[GuguGaga] Falta ServerScriptService.GuguGagaServer.Secret (ModuleScript que devuelve { Password = \"...\" }). Nadie podrá activar el menú.")
+		PASSWORD = value.Password
 	end
 end
 
@@ -44,12 +48,24 @@ end
 local AuthFn = getRemote("RemoteFunction", "Auth")
 local Net = getRemote("RemoteEvent", "Net")
 
+local function log(text)
+	if Config.Debug then
+		print("[GuguGaga] " .. text)
+	end
+end
+
 local store
-pcall(function()
-	store = DataStoreService:GetDataStore("GuguGaga_v1")
-end)
+do
+	local ok, err = pcall(function()
+		store = DataStoreService:GetDataStore("GuguGaga_v1")
+	end)
+	if not ok then
+		warn("[GuguGaga] Sin DataStore: favoritos, teclas y ajustes no se guardarán (" .. tostring(err) .. ")")
+	end
+end
 
 local authed, attempts, saved, cooldown = {}, {}, {}, {}
+local loadFailed = {}
 local emoteState, leaders, morphs = {}, {}, {}
 local snapshots = setmetatable({}, { __mode = "k" })
 local ragdolls, rides, floatHeads, rainbows = {}, {}, {}, {}
@@ -120,19 +136,27 @@ local function loadData(player)
 		end)
 		if ok then
 			data = res
+		else
+			-- no se pudo leer: en esta sesión no se guarda, para no pisar lo que ya había guardado
+			loadFailed[player] = true
+			warn(string.format("[GuguGaga] No se pudieron cargar los datos de %s; en esta sesión no se guardarán (%s)", player.Name, tostring(res)))
 		end
 	end
 	return sanitize(data)
 end
 
 local function saveData(player)
-	if not store or not saved[player] then
+	if not store or not saved[player] or loadFailed[player] then
 		return
 	end
 	local data = saved[player]
-	pcall(function()
-		store:SetAsync("u" .. player.UserId, data)
+	local name, userId = player.Name, player.UserId
+	local ok, err = pcall(function()
+		store:SetAsync("u" .. userId, data)
 	end)
+	if not ok then
+		warn(string.format("[GuguGaga] No se pudieron guardar los datos de %s (%s)", name, tostring(err)))
+	end
 end
 
 ---------------------------------------------------------------- base gigante
@@ -793,11 +817,13 @@ AuthFn.OnServerInvoke = function(player, pass)
 		if a.n >= 5 then
 			a.n = 0
 			a.lock = os.clock() + 15
+			warn(string.format("[GuguGaga] %s falló la contraseña 5 veces: bloqueado 15 s", player.Name))
 		end
 		return { ok = false, msg = "❌ Contraseña incorrecta" }
 	end
 	authed[player] = true
 	saved[player] = loadData(player)
+	log(player.Name .. " activó el menú")
 	player:SetAttribute("GuguGaga", true)
 	if player.Character then
 		task.spawn(addTag, player, player.Character)
@@ -955,7 +981,13 @@ Net.OnServerEvent:Connect(function(player, kind, ...)
 	end
 	local fn = type(kind) == "string" and handlers[kind]
 	if fn then
-		fn(player, ...)
+		-- un fallo en una acción no debe quedar mudo ni mezclarse con otros errores
+		local ok, err = xpcall(fn, function(e)
+			return debug.traceback(tostring(e), 2)
+		end, player, ...)
+		if not ok then
+			warn(string.format("[GuguGaga] Error en la acción %s de %s: %s", kind, player.Name, tostring(err)))
+		end
 	end
 end)
 
@@ -999,7 +1031,7 @@ Players.PlayerRemoving:Connect(function(player)
 			Net:FireAllClients("Sync", p, nil)
 		end
 	end
-	for _, t in { authed, attempts, saved, cooldown, emoteState, leaders, morphs, ragdolls, rides, floatHeads, rainbows } do
+	for _, t in { authed, attempts, saved, cooldown, loadFailed, emoteState, leaders, morphs, ragdolls, rides, floatHeads, rainbows } do
 		t[player] = nil
 	end
 end)
@@ -1048,3 +1080,5 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 buildMegaBase()
+
+log(string.format("Servidor listo · %s · contraseña %s · guardado %s", Config.Version, PASSWORD and "configurada" or "SIN CONFIGURAR", store and "activo" or "desactivado"))

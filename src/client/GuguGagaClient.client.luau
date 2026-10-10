@@ -8,11 +8,21 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
 local lp = Players.LocalPlayer
-local root = ReplicatedStorage:WaitForChild("GuguGaga")
-local remotes = root:WaitForChild("Remotes")
-local AuthFn = remotes:WaitForChild("Auth")
-local Net = remotes:WaitForChild("Net")
-local mods = root:WaitForChild("Client")
+-- espera una pieza del sistema; si no aparece, lo dice claro en Output en vez de quedarse esperando
+local function need(parent, name, hint)
+	local inst = parent:WaitForChild(name, 20)
+	if not inst then
+		error(string.format("[GuguGaga] No aparece %s.%s — %s. El menú no puede arrancar.", parent:GetFullName(), name, hint), 0)
+	end
+	return inst
+end
+
+local root = need(ReplicatedStorage, "GuguGaga", "falta la carpeta del sistema: vuelve a instalarlo")
+local remotes = need(root, "Remotes", "la crea ServerScriptService.GuguGagaServer: revisa que exista, esté activado y no tenga errores en Output")
+local AuthFn = need(remotes, "Auth", "la crea ServerScriptService.GuguGagaServer")
+local Net = need(remotes, "Net", "la crea ServerScriptService.GuguGagaServer")
+local mods = need(root, "Client", "faltan los módulos del cliente: vuelve a instalarlo")
+local Config = require(need(root, "Config", "falta el módulo de configuración: vuelve a instalarlo"))
 
 local UI = require(mods:WaitForChild("UI"))
 local Emotes = require(mods:WaitForChild("Emotes"))
@@ -62,3 +72,7 @@ Movement.init()
 Icons.init(gui)
 Intro.cinematic(gui)
 Menu.build(gui)
+
+if Config.Debug then
+	print("[GuguGaga] Cliente listo")
+end

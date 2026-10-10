@@ -10,6 +10,10 @@ Config.TeamTag = "TEAM gugu-gaga"
 Config.MenuKey = Enum.KeyCode.G
 Config.FlyKey = Enum.KeyCode.L
 
+-- true = mensajes informativos en Output ("Servidor listo", quién activa el menú…).
+-- Los avisos de error salen siempre, valga lo que valga esto.
+Config.Debug = true
+
 -- emotes que usa la intro
 Config.IntroWave = 10714359093 -- Hola
 Config.IntroEmote = 10714355069 -- Revelación de superhéroe
